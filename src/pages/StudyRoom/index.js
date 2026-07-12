@@ -1,0 +1,1 @@
+export { StudyRoomPage } from './StudyRoomPage';
