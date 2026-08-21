@@ -4,27 +4,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import { Badge } from '../../components/ui/Badge';
 import { Progress } from '../../components/ui/Progress';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BookOpen, TrendingUp, Clock, Target, Zap, Flame, ChevronRight, Award } from 'lucide-react';
+import { BookOpen, TrendingUp, Clock, Target, Zap, Flame, ChevronRight, Award, Loader2 } from 'lucide-react';
 import { formatDate } from '../../utils/cn';
+import { useState, useEffect } from 'react';
 
 export function DashboardPage() {
   const { user } = useAuth();
-  const { subjects, studySessions, tasks, streakData, getWeeklyStudyHours } = useStudyData();
+  const { subjects, studySessions, tasks, streakData, getWeeklyStudyHours, isLoading } = useStudyData();
+  const [weeklyHoursData, setWeeklyHoursData] = useState([]);
+  const [isLoadingWeekly, setIsLoadingWeekly] = useState(true);
 
-  const weeklyData = getWeeklyStudyHours();
+  useEffect(() => {
+    const fetchWeekly = async () => {
+      setIsLoadingWeekly(true);
+      try {
+        const data = await getWeeklyStudyHours();
+        setWeeklyHoursData(data.map(d => ({
+          day: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
+          hours: d.hours,
+        })));
+      } catch (error) {
+        console.error('Failed to fetch weekly hours:', error);
+        setWeeklyHoursData([]);
+      } finally {
+        setIsLoadingWeekly(false);
+      }
+    };
+    fetchWeekly();
+  }, [getWeeklyStudyHours, studySessions]);
 
-  const todayTotal = studySessions.filter(s => s.date === new Date().toISOString().split('T')[0]).reduce((sum, s) => sum + s.duration, 0);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayTotal = studySessions.filter(s => s.date === todayStr).reduce((sum, s) => sum + s.duration, 0);
   const todayProgress = Math.min((todayTotal / 120) * 100, 100);
 
   const pendingTasks = tasks.filter(t => !t.completed);
   const yesterdayDate = new Date();
   yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-  const yesterdaySessions = studySessions.filter(s => s.date === yesterdayDate.toISOString().split('T')[0]);
-
-  const weeklyHoursData = weeklyData.map(d => ({
-    day: new Date(d.date).toLocaleDateString('en-US', { weekday: 'short' }),
-    hours: d.hours,
-  }));
+  const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+  const yesterdaySessions = studySessions.filter(s => s.date === yesterdayStr);
 
   const upcomingLimit = new Date();
   upcomingLimit.setDate(upcomingLimit.getDate() + 3);
@@ -34,6 +51,14 @@ export function DashboardPage() {
     const today = new Date().toDateString();
     return taskDate === today || (!t.completed && new Date(t.dueDate) <= upcomingLimit);
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -135,22 +160,28 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyHoursData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                    <XAxis dataKey="day" className="text-xs text-gray-500" />
-                    <YAxis className="text-xs text-gray-500" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        borderRadius: '12px',
-                        border: '1px solid #e5e7eb',
-                        backdropFilter: 'blur(8px)',
-                      }}
-                    />
-                    <Bar dataKey="hours" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {isLoadingWeekly ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyHoursData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                      <XAxis dataKey="day" className="text-xs text-gray-500" />
+                      <YAxis className="text-xs text-gray-500" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255,255,255,0.9)',
+                          borderRadius: '12px',
+                          border: '1px solid #e5e7eb',
+                          backdropFilter: 'blur(8px)',
+                        }}
+                      />
+                      <Bar dataKey="hours" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>

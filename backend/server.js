@@ -2,11 +2,21 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.warn('Supabase credentials not fully configured. Some features may not work.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const app = express();
 app.use(express.json());
@@ -114,6 +124,241 @@ app.post('/api/study-chat', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message || 'Study AI request failed.' });
   }
+});
+
+// Auth middleware
+const authenticateUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  
+  req.user = user;
+  next();
+};
+
+// STUDY SESSIONS
+app.get('/api/study-sessions', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('date', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/study-sessions', authenticateUser, async (req, res) => {
+  const { subjectId, topic, duration, date, type } = req.body;
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .insert({ user_id: req.user.id, subject_id: subjectId, topic, duration, date, type })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/study-sessions/:id', authenticateUser, async (req, res) => {
+  const { error } = await supabase
+    .from('study_sessions')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+// TASKS
+app.get('/api/tasks', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('due_date', { ascending: true });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/tasks', authenticateUser, async (req, res) => {
+  const { title, subject, dueDate, priority, type, completed = false } = req.body;
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({ user_id: req.user.id, title, subject, due_date: dueDate, priority, type, completed })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch('/api/tasks/:id', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id)
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/tasks/:id', authenticateUser, async (req, res) => {
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+// SUBJECTS
+app.get('/api/subjects', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('created_at', { ascending: true });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/subjects', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .insert({ user_id: req.user.id, ...req.body })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch('/api/subjects/:id', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id)
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// STREAK DATA
+app.get('/api/streak', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('streak_data')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') return res.status(500).json({ error: error.message });
+  
+  if (!data) {
+    // Create default streak data
+    const { data: newData, error: createError } = await supabase
+      .from('streak_data')
+      .insert({ user_id: req.user.id })
+      .select()
+      .single();
+    if (createError) return res.status(500).json({ error: createError.message });
+    return res.json(newData);
+  }
+  
+  res.json(data);
+});
+
+app.patch('/api/streak', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('streak_data')
+    .upsert({ user_id: req.user.id, ...req.body })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// QUIZ SCORES
+app.get('/api/quiz-scores', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('quiz_scores')
+    .select('*')
+    .eq('user_id', req.user.id)
+    .order('date', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/quiz-scores', authenticateUser, async (req, res) => {
+  const { data, error } = await supabase
+    .from('quiz_scores')
+    .insert({ user_id: req.user.id, ...req.body })
+    .select()
+    .single();
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// LIBRARY MATERIALS (public read)
+app.get('/api/library', async (req, res) => {
+  const { data, error } = await supabase
+    .from('library_materials')
+    .select('*')
+    .order('downloads', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// WEEKLY STUDY HOURS (computed)
+app.get('/api/weekly-study-hours', authenticateUser, async (req, res) => {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    return date.toISOString().split('T')[0];
+  });
+  
+  const { data, error } = await supabase
+    .from('study_sessions')
+    .select('date, duration')
+    .eq('user_id', req.user.id)
+    .in('date', last7Days);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  
+  const hoursByDate = {};
+  data?.forEach(s => {
+    hoursByDate[s.date] = (hoursByDate[s.date] || 0) + s.duration;
+  });
+  
+  const result = last7Days.map(date => ({
+    date,
+    hours: Math.round((hoursByDate[date] || 0) / 60 * 10) / 10,
+  }));
+  
+  res.json(result);
 });
 
 const PORT = process.env.PORT || 5000;

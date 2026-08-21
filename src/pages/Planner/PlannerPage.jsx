@@ -83,6 +83,8 @@ export function PlannerPage() {
     type: 'assignment',
   });
 
+  const [addTaskError, setAddTaskError] = useState('');
+
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
 
@@ -155,23 +157,27 @@ export function PlannerPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTask.title.trim()) return;
+    setAddTaskError('');
 
-    addTask({
-      ...newTask,
-      completed: false,
-    });
+    try {
+      await addTask({
+        ...newTask,
+        completed: false,
+      });
 
-    setShowAddTask(false);
-
-    setNewTask({
-      title: '',
-      subject: '',
-      dueDate: new Date().toISOString().split('T')[0],
-      priority: 'medium',
-      type: 'assignment',
-    });
+      setShowAddTask(false);
+      setNewTask({
+        title: '',
+        subject: '',
+        dueDate: new Date().toISOString().split('T')[0],
+        priority: 'medium',
+        type: 'assignment',
+      });
+    } catch (error) {
+      setAddTaskError(error.message || 'Failed to add task');
+    }
   };
 
   return (
@@ -194,7 +200,10 @@ export function PlannerPage() {
           variant="primary"
           size="sm"
           className="hidden sm:flex"
-          onClick={() => setShowAddTask(true)}
+          onClick={() => {
+            setNewTask(prev => ({ ...prev, dueDate: selectedDate }));
+            setShowAddTask(true);
+          }}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Task
@@ -220,6 +229,11 @@ export function PlannerPage() {
             </div>
 
             <div className="space-y-4">
+              {addTaskError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
+                  {addTaskError}
+                </div>
+              )}
 
               <input
                 className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-transparent p-3"

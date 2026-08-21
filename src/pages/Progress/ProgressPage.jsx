@@ -2,36 +2,76 @@ import { useStudyData } from '../../context/StudyDataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Progress } from '../../components/ui/Progress';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
-import { TrendingUp, Flame, Award, Clock, BookOpen, BarChart3, Target, Zap, Activity, Brain, CheckCircle, AlertTriangle } from 'lucide-react';
-
-const monthlyProgress = [
-  { month: 'Aug', hours: 42, quizzes: 5, avgScore: 72 },
-  { month: 'Sep', hours: 55, quizzes: 8, avgScore: 78 },
-  { month: 'Oct', hours: 48, quizzes: 6, avgScore: 82 },
-  { month: 'Nov', hours: 62, quizzes: 10, avgScore: 85 },
-  { month: 'Dec', hours: 70, quizzes: 12, avgScore: 88 },
-  { month: 'Jan', hours: 45, quizzes: 7, avgScore: 84 },
-];
-
-const subjectRadarData = [
-  { subject: 'DS', A: 85, fullMark: 100 },
-  { subject: 'OS', A: 72, fullMark: 100 },
-  { subject: 'CN', A: 65, fullMark: 100 },
-  { subject: 'DB', A: 90, fullMark: 100 },
-  { subject: 'SE', A: 55, fullMark: 100 },
-  { subject: 'WD', A: 78, fullMark: 100 },
-];
+import { TrendingUp, Flame, Award, Clock, BookOpen, BarChart3, Target, Zap, Activity, Brain, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export function ProgressPage() {
-  const { subjects, studySessions, streakData, quizScores } = useStudyData();
+  const { subjects, studySessions, streakData, quizScores, getWeeklyStudyHours, isLoading } = useStudyData();
+  const [monthlyData, setMonthlyData] = useState([]);
+  const [radarData, setRadarData] = useState([]);
+  const [isLoadingCharts, setIsLoadingCharts] = useState(true);
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      setIsLoadingCharts(true);
+      try {
+        // Get last 6 months of data
+        const weeklyData = await getWeeklyStudyHours();
+        // Aggregate by month
+        const monthMap = {};
+        weeklyData.forEach(d => {
+          const date = new Date(d.date);
+          const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+          if (!monthMap[monthKey]) {
+            monthMap[monthKey] = { hours: 0, weeks: 0 };
+          }
+          monthMap[monthKey].hours += d.hours;
+          monthMap[monthKey].weeks += 1;
+        });
+        
+        const monthly = Object.entries(monthMap).slice(-6).map(([month, data]) => ({
+          month,
+          hours: Math.round(data.hours * 10) / 10,
+          quizzes: 0,
+          avgScore: 0,
+        }));
+        setMonthlyData(monthly);
+
+        // Build radar data from actual subject progress
+        const radar = subjects.map(s => ({
+          subject: s.name.slice(0, 2).toUpperCase(),
+          A: s.progress,
+          fullMark: 100,
+        }));
+        setRadarData(radar);
+      } catch (error) {
+        console.error('Failed to fetch chart data:', error);
+      } finally {
+        setIsLoadingCharts(false);
+      }
+    };
+    fetchChartData();
+  }, [getWeeklyStudyHours, subjects, studySessions]);
 
   const totalStudyHours = studySessions.reduce((sum, s) => sum + s.duration, 0) / 60;
-  const avgQuizScore = quizScores.reduce((sum, q) => sum + q.score, 0) / quizScores.length;
-  const overallProgress = Math.round(subjects.reduce((sum, s) => sum + s.progress, 0) / subjects.length);
+  const avgQuizScore = quizScores.length > 0 
+    ? quizScores.reduce((sum, q) => sum + q.score, 0) / quizScores.length 
+    : 0;
+  const overallProgress = subjects.length > 0 
+    ? Math.round(subjects.reduce((sum, s) => sum + s.progress, 0) / subjects.length) 
+    : 0;
 
   const weakTopics = subjects
     .filter(s => s.progress < 60)
     .map(s => ({ name: s.name, progress: s.progress, color: s.color }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -85,28 +125,34 @@ export function ProgressPage() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyProgress}>
-                  <defs>
-                    <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                  <XAxis dataKey="month" className="text-xs text-gray-500" />
-                  <YAxis className="text-xs text-gray-500" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      borderRadius: '12px',
-                      border: '1px solid #e5e7eb',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                  />
-                  <Area type="monotone" dataKey="hours" stroke="#8B5CF6" fill="url(#colorHours)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+              {isLoadingCharts ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={monthlyData.length > 0 ? monthlyData : [{ month: 'No data', hours: 0 }]}>
+                    <defs>
+                      <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                    <XAxis dataKey="month" className="text-xs text-gray-500" />
+                    <YAxis className="text-xs text-gray-500" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        borderRadius: '12px',
+                        border: '1px solid #e5e7eb',
+                        backdropFilter: 'blur(8px)',
+                      }}
+                    />
+                    <Area type="monotone" dataKey="hours" stroke="#8B5CF6" fill="url(#colorHours)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -120,14 +166,20 @@ export function ProgressPage() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={subjectRadarData}>
-                  <PolarGrid className="stroke-gray-200 dark:stroke-gray-700" />
-                  <PolarAngleAxis dataKey="subject" className="text-xs text-gray-500" />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} className="text-xs text-gray-500" />
-                  <Radar name="Score" dataKey="A" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
-                </RadarChart>
-              </ResponsiveContainer>
+              {isLoadingCharts ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData.length > 0 ? radarData : [{ subject: 'N/A', A: 0, fullMark: 100 }]}>
+                    <PolarGrid className="stroke-gray-200 dark:stroke-gray-700" />
+                    <PolarAngleAxis dataKey="subject" className="text-xs text-gray-500" />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} className="text-xs text-gray-500" />
+                    <Radar name="Progress" dataKey="A" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -166,22 +218,28 @@ export function ProgressPage() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={quizScores}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                  <XAxis dataKey="subject" className="text-xs text-gray-500" />
-                  <YAxis domain={[0, 100]} className="text-xs text-gray-500" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                      borderRadius: '12px',
-                      border: '1px solid #e5e7eb',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                  />
-                  <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={2} dot={{ fill: '#3B82F6', r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
+              {isLoadingCharts ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={quizScores.length > 0 ? quizScores.slice(-10).reverse() : [{ subject: 'No data', score: 0 }]}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                    <XAxis dataKey="subject" className="text-xs text-gray-500" />
+                    <YAxis domain={[0, 100]} className="text-xs text-gray-500" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        borderRadius: '12px',
+                        border: '1px solid #e5e7eb',
+                        backdropFilter: 'blur(8px)',
+                      }}
+                    />
+                    <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={2} dot={{ fill: '#3B82F6', r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
