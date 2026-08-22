@@ -190,8 +190,13 @@ export const signUpWithPassword = async ({ email, password, name, branch, semest
         subjects,
         preferences: defaultPreferences,
       },
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
     }),
   });
+
+  console.log('Signup response:', data);
 
   return {
     user: normalizeSupabaseUser(data.user, { email, name, branch, semester, subjects }),

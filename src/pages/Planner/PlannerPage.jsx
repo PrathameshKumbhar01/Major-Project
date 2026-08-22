@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Trash2,
   X,
+  Target,
 } from 'lucide-react';
 import { formatDate, cn } from '../../utils/cn';
 
@@ -127,6 +128,12 @@ export function PlannerPage() {
 
   const selectedTasks = filteredTasks.filter(
     (t) => t.dueDate === selectedDate
+  );
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  // Use raw tasks for Today's Tasks (not affected by filter)
+  const todayTasks = tasks.filter(
+    (t) => t.dueDate === todayStr && !t.completed
   );
 
   const selectedSessions = studySessions.filter(
@@ -608,10 +615,12 @@ export function PlannerPage() {
 
                 <div className="space-y-3">
 
-                  {filteredTasks
-                    .filter((task) => !task.completed)
-                    .slice(0, 5)
-                    .map((task) => (
+                  {/* Use raw tasks for Upcoming Deadlines (not affected by filter) */}
+                {tasks
+                  .filter((task) => !task.completed)
+                  .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                  .slice(0, 5)
+                  .map((task) => (
 
                       <div
                         key={task.id}
@@ -659,6 +668,135 @@ export function PlannerPage() {
                     ))}
 
                 </div>
+
+              </CardContent>
+
+            </Card>
+
+            <Card>
+
+              <CardHeader>
+
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-green-500" />
+                  Today's Tasks
+                </CardTitle>
+
+              </CardHeader>
+
+              <CardContent>
+
+                {todayTasks.length === 0 ? (
+
+                  <div className="text-center py-8 text-gray-500">
+                    No tasks due today.
+                  </div>
+
+                ) : (
+
+                  <div className="space-y-3">
+
+                    {todayTasks.map((task) => (
+
+                      <div
+
+                        key={task.id}
+
+                        className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-4"
+
+                      >
+
+                        <button
+
+                          onClick={() =>
+
+                            toggleTaskComplete(task.id)
+
+                          }
+
+                        >
+
+                          {task.completed ? (
+
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+
+                          ) : (
+
+                            <Circle className="w-6 h-6 text-gray-400" />
+
+                          )}
+
+                        </button>
+
+                        <div className="flex-1">
+
+                          <h3
+
+                            className={cn(
+
+                              "font-semibold",
+
+                              task.completed &&
+
+                                "line-through text-gray-400"
+
+                            )}
+
+                          >
+
+                            {task.title}
+
+                          </h3>
+
+                          <p className="text-sm text-gray-500">
+
+                            {task.subject} • {task.type}
+
+                          </p>
+
+                        </div>
+
+                        <Badge
+
+                          variant={
+
+                            task.priority === "high"
+
+                              ? "danger"
+
+                              : task.priority === "medium"
+
+                              ? "warning"
+
+                              : "success"
+
+                          }
+
+                        >
+
+                          {task.priority}
+
+                        </Badge>
+
+                        <button
+
+                          onClick={() => deleteTask(task.id)}
+
+                          className="text-red-500 hover:text-red-700"
+
+                        >
+
+                          <Trash2 className="w-5 h-5" />
+
+                        </button>
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                )}
 
               </CardContent>
 

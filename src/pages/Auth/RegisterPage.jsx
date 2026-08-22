@@ -33,8 +33,16 @@ export function RegisterPage() {
     setIsLoading(true);
     try {
       const result = await register(formData);
-      if (result.success) navigate('/dashboard');
+      console.log('Register result:', result);
+      if (result.success) {
+        if (result.needsEmailConfirmation) {
+          setError('Account created! Check your email to confirm.');
+        } else {
+          navigate('/dashboard');
+        }
+      }
     } catch (err) {
+      console.error('Register error:', err);
       setError(err.message || 'Registration failed. Try again.');
     } finally {
       setIsLoading(false);

@@ -2,11 +2,11 @@ import { useStudyData } from '../../context/StudyDataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Progress } from '../../components/ui/Progress';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
-import { TrendingUp, Flame, Award, Clock, BookOpen, BarChart3, Target, Zap, Activity, Brain, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { TrendingUp, Flame, Award, Clock, BookOpen, BarChart3, Target, Zap, Activity, Brain, CheckCircle, AlertTriangle, Loader2, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function ProgressPage() {
-  const { subjects, studySessions, streakData, quizScores, getWeeklyStudyHours, isLoading } = useStudyData();
+  const { subjects, studySessions, streakData, quizScores, getWeeklyStudyHours, isLoading, error, refreshAll } = useStudyData();
   const [monthlyData, setMonthlyData] = useState([]);
   const [radarData, setRadarData] = useState([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
@@ -53,12 +53,12 @@ export function ProgressPage() {
     fetchChartData();
   }, [getWeeklyStudyHours, subjects, studySessions]);
 
-  const totalStudyHours = studySessions.reduce((sum, s) => sum + s.duration, 0) / 60;
-  const avgQuizScore = quizScores.length > 0 
-    ? quizScores.reduce((sum, q) => sum + q.score, 0) / quizScores.length 
+const totalStudyHours = studySessions.reduce((sum, s) => sum + s.duration, 0) / 60;
+  const avgQuizScore = quizScores.length > 0
+    ? quizScores.reduce((sum, q) => sum + q.score, 0) / quizScores.length
     : 0;
-  const overallProgress = subjects.length > 0 
-    ? Math.round(subjects.reduce((sum, s) => sum + s.progress, 0) / subjects.length) 
+  const overallProgress = subjects.length > 0
+    ? Math.round(subjects.reduce((sum, s) => sum + s.progress, 0) / subjects.length)
     : 0;
 
   const weakTopics = subjects
@@ -69,6 +69,26 @@ export function ProgressPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          Unable to load progress data
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+          {error}. Please log in again or check your connection.
+        </p>
+        <button
+          onClick={refreshAll}
+          className="px-4 py-2 rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -269,7 +289,7 @@ export function ProgressPage() {
               </div>
             </div>
             <div className="grid grid-cols-7 gap-1">
-              {streakData.heatmapData.slice(-35).map((day, i) => (
+              {(streakData.heatmapData || []).slice(-35).map((day, i) => (
                 <div
                   key={i}
                   className={`aspect-square rounded-sm ${

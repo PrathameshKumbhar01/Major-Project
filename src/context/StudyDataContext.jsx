@@ -33,6 +33,7 @@ export function StudyDataProvider({ children }) {
   const [libraryMaterials, setLibraryMaterials] = useState([]);
   const [quizScores, setQuizScores] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const refreshAll = useCallback(async () => {
     try {
@@ -50,8 +51,15 @@ export function StudyDataProvider({ children }) {
       setSubjects(subjectsData?.length ? subjectsData : defaultSubjects);
       setLibraryMaterials(library || []);
       setQuizScores(quizzes || []);
+      setError(null);
     } catch (error) {
       console.error('Failed to load study data:', error);
+      setError(error.message);
+      // Fallback to localStorage for offline/demo mode
+      try {
+        const storedTasks = localStorage.getItem('studycat_tasks');
+        if (storedTasks) setTasks(JSON.parse(storedTasks));
+      } catch {}
     } finally {
       setIsLoading(false);
     }
@@ -151,6 +159,7 @@ export function StudyDataProvider({ children }) {
     libraryMaterials,
     quizScores,
     isLoading,
+    error,
     getSubjectById,
     getSessionsBySubject,
     getTasksBySubject,
@@ -168,7 +177,7 @@ export function StudyDataProvider({ children }) {
     addQuizScore,
     refreshAll,
   }), [
-    subjects, studySessions, tasks, streakData, libraryMaterials, quizScores, isLoading,
+    subjects, studySessions, tasks, streakData, libraryMaterials, quizScores, isLoading, error,
     getSubjectById, getSessionsBySubject, getTasksBySubject, getWeeklyStudyHours, getSubjectProgress,
     addSession, deleteSession, addTask, updateTask, deleteTask, toggleTaskComplete,
     addSubject, updateSubject, updateStreak, addQuizScore, refreshAll

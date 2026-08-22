@@ -3,7 +3,8 @@ import { useStudyData } from '../../context/StudyDataContext';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
-import { Search, BookOpen, FileText, FileSpreadsheet, GraduationCap, Download, Star, ChevronRight, Folder, BarChart3 } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Search, BookOpen, FileText, FileSpreadsheet, GraduationCap, Download, Star, ChevronRight, Folder, BarChart3, ExternalLink, AlertCircle, HelpCircle, Check, X, ArrowLeft, ArrowRight, Trophy, Brain } from 'lucide-react';
 
 const materialTypes = [
   { value: 'all', label: 'All Materials', icon: BookOpen },
@@ -11,6 +12,7 @@ const materialTypes = [
   { value: 'papers', label: 'Question Papers', icon: FileSpreadsheet },
   { value: 'summary', label: 'Summaries', icon: BarChart3 },
   { value: 'guide', label: 'Guides', icon: BookOpen },
+  { value: 'quiz', label: 'Quiz', icon: HelpCircle },
 ];
 
 const typeColors = {
@@ -18,6 +20,7 @@ const typeColors = {
   papers: 'from-purple-500 to-purple-600',
   summary: 'from-green-500 to-green-600',
   guide: 'from-orange-500 to-orange-600',
+  quiz: 'from-pink-500 to-pink-600',
 };
 
 const typeIcons = {
@@ -25,6 +28,7 @@ const typeIcons = {
   papers: FileSpreadsheet,
   summary: BarChart3,
   guide: BookOpen,
+  quiz: HelpCircle,
 };
 
 const semesters = [1, 2, 3, 4, 5, 6];
@@ -60,6 +64,33 @@ export function LibraryPage() {
           </p>
         </div>
       </div>
+
+      <Card variant="glass" className="text-center py-10 px-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30">
+            <AlertCircle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              Library Feature Under Development
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-md mx-auto">
+              We're still working on this feature to bring you the best study materials experience.
+            </p>
+          </div>
+          <a
+            href="https://practicalkida.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2"
+          >
+            <Button variant="primary" size="lg" className="gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Visit PracticalKida.com
+            </Button>
+          </a>
+        </div>
+      </Card>
 
       <Card className="sticky top-20 z-20" variant="glass">
         <CardContent className="p-4 space-y-4">

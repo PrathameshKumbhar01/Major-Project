@@ -65,7 +65,7 @@ app.get('/api/env-status', (_req, res) => {
 
 app.post('/api/study-chat', async (req, res) => {
   const groqApiKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
-  const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+  const model = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
   const { messages = [], mode = 'chat' } = req.body || {};
 
   if (!groqApiKey) {
